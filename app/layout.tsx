@@ -3,8 +3,12 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Talenty Consulting | Hire Smarter, Build Stronger Teams',
-  description: 'Talenty Consulting helps companies simplify hiring by providing trained, job-ready employees and recruitment support tailored to business needs.',
+  metadataBase: new URL('https://www.talentyconsulting.in'),
+  title: 'Recruitment Consulting & Staffing in Bengaluru | Talenty Consulting',
+  description: 'Talenty Consulting helps Bengaluru companies hire trained, job-ready employees fast. Recruitment consulting, talent screening & staffing — book your free consultation today.',
+  alternates: {
+    canonical: 'https://www.talentyconsulting.in',
+  },
   generator: 'v0.app',
   icons: {
     icon: [

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useRef, useEffect, useState } from "react"
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion"
@@ -57,11 +57,11 @@ export function Hero() {
               <Zap className="h-4 w-4 text-primary" />
               <span className="text-sm text-muted-foreground">Counseling, Consulting, and Hiring Support</span>
             </motion.div>
-            <h1 className="mb-6 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
-              Premium counseling and hiring workflows for <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Talenty Consulting</span>
+            <h1 className="mb-6 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl text-balance">
+              Recruitment Consulting & Staffing in <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Bengaluru</span>
             </h1>
-            <p className="mb-8 max-w-2xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
-              Submit consulting enquiries and connect with a team built to support hiring, training, and workforce growth across industries.
+            <p className="mb-8 max-w-2xl text-lg leading-relaxed text-muted-foreground lg:mx-0 text-pretty">
+              Talenty Consulting helps companies hire trained, job-ready employees fast. We provide end-to-end recruitment consulting, talent screening, and business staffing solutions across India.
             </p>
             <div className="mb-8 flex flex-wrap gap-3 justify-center lg:justify-start">
               {['Consulting', 'Counseling', 'Hiring Support', 'Trained Employees'].map((badge) => (

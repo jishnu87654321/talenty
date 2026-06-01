@@ -1,18 +1,19 @@
-﻿"use client"
+"use client"
 
 import { motion } from "framer-motion"
 import { Sparkles, Mail, Phone, MapPin, Linkedin, Twitter, Facebook, Instagram } from "lucide-react"
 
 const footerLinks = {
   services: [
-    { name: 'Recruitment Consulting', href: '/#services' },
-    { name: 'Counseling Support', href: '/contact' },
-    { name: 'Hiring Workflows', href: '/#process' },
-    { name: 'Talent Screening', href: '/#services' },
+    { name: 'Trained Employee Placement', href: '/trained-employee-placement' },
+    { name: 'Recruitment Consulting', href: '/recruitment-consulting-bangalore' },
+    { name: 'IT Staffing Bengaluru', href: '/it-staffing-bangalore' },
+    { name: 'Talent Screening Process', href: '/talent-screening-process' },
   ],
   company: [
     { name: 'Home', href: '/' },
     { name: 'About Us', href: '/about' },
+    { name: 'Blog & Insights', href: '/blog' },
     { name: 'Contact', href: '/contact' },
   ],
 }

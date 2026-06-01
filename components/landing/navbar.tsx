@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useState } from "react"
 import { Menu, Sparkles, X } from "lucide-react"
@@ -8,7 +8,9 @@ import { motion } from "framer-motion"
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "About", href: "/about" },
-  { name: "Services", href: "/#services" },
+  { name: "Trained Placement", href: "/trained-employee-placement" },
+  { name: "Vetting Process", href: "/talent-screening-process" },
+  { name: "Blog", href: "/blog" },
   { name: "Contact", href: "/contact" },
 ]
 

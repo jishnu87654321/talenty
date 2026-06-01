@@ -1,19 +1,28 @@
-﻿import { Navbar } from "@/components/landing/navbar"
+import { Navbar } from "@/components/landing/navbar"
 import { Hero } from "@/components/landing/hero"
 import { About } from "@/components/landing/about"
 import { Services } from "@/components/landing/services"
 import { Process } from "@/components/landing/process"
+import { FAQ } from "@/components/landing/faq"
 import { Footer } from "@/components/landing/footer"
 import { EnquiryForm } from "@/components/public/enquiry-form"
+import { OrganizationSchema, WebSiteSchema, ServiceSchema, FAQPageSchema } from "@/components/landing/json-ld"
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-background">
+      <OrganizationSchema />
+      <WebSiteSchema />
+      <ServiceSchema />
+      <FAQPageSchema />
+      
       <Navbar />
       <Hero />
       <About />
       <Services />
       <Process />
+      <FAQ />
+      
       <section id="contact" className="relative py-24 overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />

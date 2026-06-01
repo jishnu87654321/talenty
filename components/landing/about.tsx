@@ -72,18 +72,27 @@ export function About() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.3 }}
-              className="text-muted-foreground leading-relaxed mb-6 text-pretty"
+              className="text-muted-foreground leading-relaxed mb-4 text-pretty"
             >
-              Talenty Consulting is a recruitment and staffing partner focused on helping companies hire trained, job-ready employees. We simplify the hiring process through talent sourcing, screening, and consulting support tailored to modern business needs.
+              Talenty Consulting is a recruitment and staffing partner that helps companies hire trained, job-ready employees. We specialize in B2B recruitment consulting, candidate screening, and workforce support tailored to business growth.
             </motion.p>
             
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.4 }}
+              className="text-muted-foreground leading-relaxed mb-4 text-pretty"
+            >
+              We achieve this by aligning on candidate requirements, sourcing and upskilling talent, and conducting multi-stage screening. This ensures day-one productivity and streamlined onboarding for our partners.
+            </motion.p>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.5 }}
               className="text-muted-foreground leading-relaxed text-pretty"
             >
-              Our mission is to bridge the gap between exceptional talent and forward-thinking companies, creating lasting partnerships that drive mutual growth and success.
+              Unlike standard job boards, we offer end-to-end consulting and custom training plans, bridging the talent gap to build high-performing, scalable teams across India.
             </motion.p>
           </motion.div>
 

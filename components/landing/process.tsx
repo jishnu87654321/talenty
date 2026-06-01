@@ -8,29 +8,33 @@ const steps = [
   {
     number: "01",
     icon: FileSearch,
-    title: "Understand Requirements",
-    description: "We begin by deeply understanding your business needs, culture, and the specific skills required for success.",
+    title: "Audit Hiring Requirements",
+    description: "Align with stakeholders to define role parameters, target candidate profile, and technical skills needed.",
+    time: "1-2 Days",
     color: "from-violet-500 to-purple-600"
   },
   {
     number: "02",
     icon: Users,
-    title: "Source & Train Talent",
-    description: "Our team sources candidates from diverse channels and provides targeted training to match your requirements.",
+    title: "Source & Upskill Candidates",
+    description: "Source high-potential talent across networks and execute customized pre-employment upskilling bootcamps.",
+    time: "5-7 Days",
     color: "from-blue-500 to-indigo-600"
   },
   {
     number: "03",
     icon: ClipboardList,
-    title: "Screen & Shortlist",
-    description: "Rigorous multi-stage screening ensures only the most qualified candidates are presented to you.",
+    title: "Screen & Verify Profiles",
+    description: "Conduct strict coding, cognitive, and behavioral assessments to select the top-performing talent.",
+    time: "2-3 Days",
     color: "from-cyan-500 to-blue-600"
   },
   {
     number: "04",
     icon: CheckCircle2,
-    title: "Deliver the Right Hire",
-    description: "We facilitate smooth onboarding and provide continued support to ensure long-term success.",
+    title: "Deploy & Onboard Hires",
+    description: "Deliver the qualified shortlist, finalize placement, and provide active 90-day integration support.",
+    time: "2-4 Days",
     color: "from-emerald-500 to-teal-600"
   }
 ]
@@ -125,9 +129,13 @@ export function Process() {
                     <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors duration-300">
                       {step.title}
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed text-sm">
+                    <p className="text-muted-foreground leading-relaxed text-sm mb-4">
                       {step.description}
                     </p>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary/80 bg-primary/5 rounded-full px-3 py-1 w-fit">
+                      <span>Timeline:</span>
+                      <span className="text-foreground">{step.time}</span>
+                    </div>
                   </div>
                 </motion.div>
 
@@ -147,6 +155,24 @@ export function Process() {
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Hire Trained Employees with Talenty Consulting",
+            "description": "A structured four-step process to source, screen, train, and deploy candidate matches for your business.",
+            "totalTime": "P14D",
+            "step": steps.map((s, idx) => ({
+              "@type": "HowToStep",
+              "name": s.title,
+              "text": s.description,
+              "url": `https://www.talentyconsulting.in/#process-step-${idx + 1}`
+            }))
+          })
+        }}
+      />
     </section>
   )
 }

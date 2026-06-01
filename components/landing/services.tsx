@@ -15,37 +15,37 @@ const services = [
   {
     icon: UserCheck,
     title: "Trained Employee Placement",
-    description: "Access pre-trained professionals ready to contribute from day one. Our candidates undergo rigorous training programs tailored to industry standards.",
+    description: "Trained employee placement provides companies with pre-vetted, job-ready professionals who have completed industry-standard training. This specialized staffing solution eliminates onboarding delays, ensuring candidates deliver immediate value on day one.",
     gradient: "from-violet-500 to-purple-600"
   },
   {
     icon: Search,
     title: "Recruitment Consulting",
-    description: "Strategic guidance on talent acquisition, employer branding, and building effective hiring processes that attract top talent.",
+    description: "Recruitment consulting is a strategic service that optimizes employer branding, salary benchmarking, and talent acquisition pipelines. Our consultants analyze hiring friction points, design custom recruitment workflows, and implement best practices.",
     gradient: "from-blue-500 to-indigo-600"
   },
   {
     icon: ClipboardCheck,
     title: "Talent Screening",
-    description: "Comprehensive candidate evaluation including skills assessment, background verification, and cultural fit analysis.",
+    description: "Talent screening is a rigorous vetting process that evaluates candidate skills, cognitive aptitude, and cultural fit. We implement custom coding tests, background verifications, and professional behavioral interviews to deliver top-tier talent.",
     gradient: "from-cyan-500 to-blue-600"
   },
   {
     icon: HeartHandshake,
     title: "Workforce Support",
-    description: "Ongoing support for placed employees and employers to ensure smooth onboarding and long-term retention success.",
+    description: "Workforce support ensures smooth transition and high employee retention through structured onboarding, regular feedback loops, and post-placement counseling. We support both employers and new hires during the critical first 90 days.",
     gradient: "from-pink-500 to-rose-600"
   },
   {
     icon: Zap,
     title: "Fast Hiring Solutions",
-    description: "Accelerated recruitment processes for urgent hiring needs without compromising on candidate quality or fit.",
+    description: "Fast hiring solutions provide accelerated talent sourcing and placement workflows for urgent business vacancies. By leveraging our pre-screened talent pipeline, we deliver vetted profiles within 3 to 10 business days.",
     gradient: "from-amber-500 to-orange-600"
   },
   {
     icon: Building,
     title: "Business Staffing Assistance",
-    description: "End-to-end staffing solutions for scaling teams, managing seasonal demands, and building specialized departments.",
+    description: "Business staffing assistance is a comprehensive, end-to-end service for managing large-scale hiring, seasonal volume spikes, or building entire new departments. We handle job description creation, sourcing, and contracting.",
     gradient: "from-emerald-500 to-teal-600"
   }
 ]
