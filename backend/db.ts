@@ -10,7 +10,7 @@ declare global {
   var __talentyMongoClient: MongoClient | undefined
 }
 
-const connectionString = process.env.DATABASE_URL || process.env.MONGODB_URI
+const connectionString = process.env.MONGODB_URI || process.env.DATABASE_URL
 
 const isMongo = connectionString?.startsWith("mongodb://") || connectionString?.startsWith("mongodb+srv://")
 
