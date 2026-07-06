@@ -35,6 +35,13 @@ export function EnquiryForm({ buttonLabel = "Submit Enquiry" }: { buttonLabel?: 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setErrorMessage("")
+
+    const messageLength = formData.message.trim().length
+    if (messageLength < 10) {
+      setErrorMessage(`Please share counseling or consulting details (still needs ${10 - messageLength} more characters).`)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -174,6 +181,11 @@ export function EnquiryForm({ buttonLabel = "Submit Enquiry" }: { buttonLabel?: 
           <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <textarea name="message" value={formData.message} onChange={handleChange} rows={5} className="min-h-[136px] w-full rounded-md border border-border/50 bg-secondary/40 pl-10 pr-4 py-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Describe your counseling, consulting, staffing, or hiring requirement in detail." required />
         </div>
+        {formData.message.trim().length > 0 && formData.message.trim().length < 10 ? (
+          <p className="text-xs text-amber-500 font-medium">
+            Still needs {10 - formData.message.trim().length} more characters.
+          </p>
+        ) : null}
       </div>
 
       {errorMessage ? <p className="text-sm text-red-400">{errorMessage}</p> : null}
