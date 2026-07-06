@@ -1,12 +1,12 @@
 "use client"
 
 import { useRef, useEffect, useState } from "react"
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion"
+import { motion, useMotionValue, useSpring, useTransform, MotionValue } from "framer-motion"
 import { ArrowRight, Users, Building2, CheckCircle, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-function FloatingCard({ children, className, delay = 0, mouseX, mouseY }: { children: React.ReactNode; className?: string; delay?: number; mouseX: ReturnType<typeof useMotionValue>; mouseY: ReturnType<typeof useMotionValue> }) {
+function FloatingCard({ children, className, delay = 0, mouseX, mouseY }: { children: React.ReactNode; className?: string; delay?: number; mouseX: MotionValue<number>; mouseY: MotionValue<number> }) {
   const x = useSpring(useTransform(mouseX, [-0.5, 0.5], [-15, 15]), { stiffness: 100, damping: 20 })
   const y = useSpring(useTransform(mouseY, [-0.5, 0.5], [-15, 15]), { stiffness: 100, damping: 20 })
   const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [5, -5]), { stiffness: 100, damping: 20 })
@@ -32,8 +32,8 @@ function AnimatedBackground() {
 
 export function Hero() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const mouseX = useMotionValue(0)
-  const mouseY = useMotionValue(0)
+  const mouseX = useMotionValue<number>(0)
+  const mouseY = useMotionValue<number>(0)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {

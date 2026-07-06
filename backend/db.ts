@@ -1,4 +1,5 @@
 import { Pool } from "pg"
+import { MongoClient, ObjectId } from "mongodb"
 import fs from "fs"
 import path from "path"
 
@@ -6,41 +7,69 @@ import { hashPassword } from "@/backend/auth"
 
 declare global {
   var __talentyPool: Pool | undefined
+  var __talentyMongoClient: MongoClient | undefined
 }
 
-const connectionString = process.env.DATABASE_URL
+const connectionString = process.env.DATABASE_URL || process.env.MONGODB_URI
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set. Add it to your environment before starting the app.")
-}
+const isMongo = connectionString?.startsWith("mongodb://") || connectionString?.startsWith("mongodb+srv://")
 
+// Initialize postgres pool conditionally
 const pool =
-  global.__talentyPool ??
-  new Pool({
-    connectionString,
-    ssl:
-      connectionString.includes("railway.app") || connectionString.includes("proxy.rlwy.net")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  })
+  isMongo || !connectionString
+    ? null
+    : (global.__talentyPool ??
+       new Pool({
+         connectionString,
+         ssl:
+           connectionString && !connectionString.includes("localhost") && !connectionString.includes("127.0.0.1")
+             ? { rejectUnauthorized: false }
+             : undefined,
+       }))
 
-if (process.env.NODE_ENV !== "production") {
+if (pool && process.env.NODE_ENV !== "production") {
   global.__talentyPool = pool
 }
 
-let useLocalFallback = false
-const JSON_DB_PATH = path.join(process.cwd(), "database.json")
+// Initialize mongo client conditionally
+const mongoClient =
+  !isMongo || !connectionString
+    ? null
+    : (global.__talentyMongoClient ?? new MongoClient(connectionString))
+
+if (mongoClient && process.env.NODE_ENV !== "production") {
+  global.__talentyMongoClient = mongoClient
+}
+
+let mongoDb: any = null
+let useLocalFallback = !connectionString
+const JSON_DB_PATH = path.join(
+  process.env.NODE_ENV === "production" ? "/tmp" : process.cwd(),
+  "database.json"
+)
 
 function readLocalDb() {
   if (!fs.existsSync(JSON_DB_PATH)) {
-    const initialData = {
+    const rootDbPath = path.join(process.cwd(), "database.json")
+    let initialData = {
       admins: [],
       enquiries: [],
       registered_users: [],
       consultation_requests: [],
       registrations: []
     }
-    fs.writeFileSync(JSON_DB_PATH, JSON.stringify(initialData, null, 2), "utf8")
+    if (fs.existsSync(rootDbPath)) {
+      try {
+        initialData = JSON.parse(fs.readFileSync(rootDbPath, "utf8"))
+      } catch (err) {
+        console.error("Error reading root database.json", err)
+      }
+    }
+    try {
+      fs.writeFileSync(JSON_DB_PATH, JSON.stringify(initialData, null, 2), "utf8")
+    } catch (err) {
+      console.error("Error writing initial database.json", err)
+    }
     return initialData
   }
   try {
@@ -96,7 +125,7 @@ async function localQuery(sql: string, params: any[] = []): Promise<{ rows: any[
     return { rows: [] }
   }
 
-  if (normalizedSql.includes("INSERT INTO enquiries")) {
+  if (normalizedSql.includes("INSERT INTO enquiries") && normalizedSql.includes("INSERT")) {
     const nextId = data.enquiries.reduce((max: number, e: any) => Math.max(max, e.id || 0), 0) + 1
     const newEnquiry = {
       id: nextId,
@@ -298,28 +327,288 @@ async function localQuery(sql: string, params: any[] = []): Promise<{ rows: any[
   return { rows: [] }
 }
 
+function getMongoIdFilter(idStr: string) {
+  if (ObjectId.isValid(idStr) && idStr.length === 24) {
+    return { $or: [{ _id: new ObjectId(idStr) }, { _id: idStr }] }
+  }
+  const num = Number(idStr)
+  if (!isNaN(num)) {
+    return { $or: [{ _id: num }, { _id: idStr }] }
+  }
+  return { _id: idStr }
+}
+
+async function mongoQuery(sql: string, params: any[] = []): Promise<{ rows: any[] }> {
+  if (!mongoDb) {
+    throw new Error("MongoDB database is not connected.")
+  }
+
+  const normalizedSql = sql.trim().replace(/\s+/g, " ")
+
+  if (normalizedSql.startsWith("CREATE TABLE") || normalizedSql.startsWith("CREATE INDEX")) {
+    return { rows: [] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO admins")) {
+    const email = params[0]
+    const passwordHash = params[1]
+    const role = params[2] || "super_admin"
+
+    await mongoDb.collection("admins").updateOne(
+      { email: email.toLowerCase() },
+      {
+        $set: {
+          email: email.toLowerCase(),
+          password_hash: passwordHash,
+          role,
+          updated_at: new Date().toISOString()
+        },
+        $setOnInsert: {
+          created_at: new Date().toISOString()
+        }
+      },
+      { upsert: true }
+    )
+    return { rows: [] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO enquiries") && normalizedSql.includes("INSERT")) {
+    const doc = {
+      full_name: params[0],
+      company_name: params[1],
+      email: params[2],
+      phone: params[3],
+      requirement_type: params[4],
+      industry: params[5],
+      roles_required: params[6],
+      employees_needed: Number(params[7] || 1),
+      message: params[8],
+      status: "pending",
+      admin_notes: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    const res = await mongoDb.collection("enquiries").insertOne(doc)
+    return { rows: [{ id: res.insertedId.toString() }] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO registered_users")) {
+    const email = params[1].toLowerCase()
+    const exists = await mongoDb.collection("registered_users").findOne({ email })
+    if (exists) {
+      const error: any = new Error("Unique constraint violation")
+      error.code = "23505"
+      throw error
+    }
+
+    const doc = {
+      full_name: params[0],
+      email,
+      phone: params[2],
+      interested_role: params[3],
+      company_name: params[4],
+      password_hash: params[5],
+      created_at: new Date().toISOString()
+    }
+    const res = await mongoDb.collection("registered_users").insertOne(doc)
+    return { rows: [{ id: res.insertedId.toString() }] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO consultation_requests")) {
+    const doc = {
+      name: params[0],
+      email: params[1],
+      phone: params[2],
+      company: params[3],
+      message: params[4],
+      created_at: new Date().toISOString()
+    }
+    const res = await mongoDb.collection("consultation_requests").insertOne(doc)
+    return { rows: [{ id: res.insertedId.toString() }] }
+  }
+
+  if (normalizedSql.includes("FROM admins WHERE email =")) {
+    const email = params[0].toLowerCase()
+    const admin = await mongoDb.collection("admins").findOne({ email })
+    return {
+      rows: admin ? [{
+        id: admin._id.toString(),
+        email: admin.email,
+        password_hash: admin.password_hash,
+        role: admin.role,
+        created_at: admin.created_at
+      }] : []
+    }
+  }
+
+  if (normalizedSql.includes("FROM enquiries") && !normalizedSql.includes("WHERE id =")) {
+    const queryObj: any = {}
+    let paramIndex = 0
+
+    if (normalizedSql.includes("full_name ILIKE")) {
+      const searchVal = params[paramIndex++].replace(/%/g, "")
+      queryObj.$or = [
+        { full_name: { $regex: searchVal, $options: "i" } },
+        { company_name: { $regex: searchVal, $options: "i" } }
+      ]
+    }
+    if (normalizedSql.includes("status =")) {
+      queryObj.status = params[paramIndex++]
+    }
+    if (normalizedSql.includes("industry =")) {
+      queryObj.industry = params[paramIndex++]
+    }
+
+    const list = await mongoDb.collection("enquiries")
+      .find(queryObj)
+      .sort({ created_at: -1 })
+      .toArray()
+
+    const rows = list.map((e: any) => ({
+      id: e._id.toString(),
+      fullName: e.full_name,
+      companyName: e.company_name,
+      email: e.email,
+      phone: e.phone,
+      requirementType: e.requirement_type,
+      industry: e.industry,
+      rolesRequired: e.roles_required,
+      employeesNeeded: e.employees_needed,
+      message: e.message,
+      status: e.status,
+      adminNotes: e.admin_notes,
+      admin_notes: e.admin_notes,
+      createdAt: e.created_at,
+      updatedAt: e.updated_at
+    }))
+    return { rows }
+  }
+
+  if (normalizedSql.includes("FROM enquiries WHERE id =")) {
+    const idStr = String(params[0])
+    const filter = getMongoIdFilter(idStr)
+    const e = await mongoDb.collection("enquiries").findOne(filter)
+    if (!e) return { rows: [] }
+    return {
+      rows: [{
+        id: e._id.toString(),
+        fullName: e.full_name,
+        companyName: e.company_name,
+        email: e.email,
+        phone: e.phone,
+        requirementType: e.requirement_type,
+        industry: e.industry,
+        rolesRequired: e.roles_required,
+        employeesNeeded: e.employees_needed,
+        message: e.message,
+        status: e.status,
+        adminNotes: e.admin_notes,
+        admin_notes: e.admin_notes,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at
+      }]
+    }
+  }
+
+  if (normalizedSql.includes("UPDATE enquiries")) {
+    const idStr = String(params[0])
+    const status = params[1]
+    const adminNotes = params[2]
+    const filter = getMongoIdFilter(idStr)
+
+    await mongoDb.collection("enquiries").updateOne(
+      filter,
+      {
+        $set: {
+          status,
+          admin_notes: adminNotes,
+          updated_at: new Date().toISOString()
+        }
+      }
+    )
+
+    const e = await mongoDb.collection("enquiries").findOne(filter)
+    if (!e) return { rows: [] }
+    return {
+      rows: [{
+        id: e._id.toString(),
+        fullName: e.full_name,
+        companyName: e.company_name,
+        email: e.email,
+        phone: e.phone,
+        requirementType: e.requirement_type,
+        industry: e.industry,
+        rolesRequired: e.roles_required,
+        employeesNeeded: e.employees_needed,
+        message: e.message,
+        status: e.status,
+        adminNotes: e.admin_notes,
+        admin_notes: e.admin_notes,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at
+      }]
+    }
+  }
+
+  if (normalizedSql.includes("DELETE FROM enquiries WHERE id =")) {
+    const idStr = String(params[0])
+    const filter = getMongoIdFilter(idStr)
+
+    const res = await mongoDb.collection("enquiries").deleteOne(filter)
+    if (res.deletedCount === 0) return { rows: [] }
+    return { rows: [{ id: idStr }] }
+  }
+
+  if (normalizedSql.includes("FROM registered_users")) {
+    const list = await mongoDb.collection("registered_users")
+      .find({})
+      .sort({ created_at: -1 })
+      .toArray()
+
+    const rows = list.map((u: any) => ({
+      id: u._id.toString(),
+      fullName: u.full_name,
+      email: u.email,
+      phone: u.phone,
+      interestedRole: u.interested_role,
+      companyName: u.company_name,
+      createdAt: u.created_at
+    }))
+    return { rows }
+  }
+
+  if (normalizedSql.includes("SELECT NOW()")) {
+    return { rows: [{ now: new Date().toISOString() }] }
+  }
+
+  return { rows: [] }
+}
+
 export const db = {
   async query(sql: string, params: any[] = []): Promise<{ rows: any[] }> {
     if (useLocalFallback) {
       return localQuery(sql, params)
     }
-    try {
-      return await pool.query(sql, params)
-    } catch (error: any) {
-      const isConnectionError = 
-        error.code === "ECONNRESET" || 
-        error.code === "ECONNREFUSED" || 
-        error.message?.includes("connect") || 
-        error.message?.includes("timeout") ||
-        error.message?.includes("paused")
-      
-      if (isConnectionError) {
-        console.warn("Database connection failed. Falling back to local JSON database. Error:", error.message)
+    if (isMongo) {
+      try {
+        return await mongoQuery(sql, params)
+      } catch (error: any) {
+        console.warn("MongoDB query failed. Falling back to local JSON database. Error:", error.message || error)
         useLocalFallback = true
         return localQuery(sql, params)
       }
-      throw error
     }
+    if (pool) {
+      try {
+        return await pool.query(sql, params)
+      } catch (error: any) {
+        console.warn("Database query failed. Falling back to local JSON database. Error:", error.message || error)
+        useLocalFallback = true
+        return localQuery(sql, params)
+      }
+    }
+    useLocalFallback = true
+    return localQuery(sql, params)
   }
 }
 
@@ -346,94 +635,112 @@ export async function initializeDatabase() {
   }
 
   try {
-    // If fallback is already on, skip real DB checks
     if (useLocalFallback) {
       await seedAdmin()
       initialized = true
       return
     }
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS admins (
-        id SERIAL PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'admin',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `)
+    if (isMongo && mongoClient) {
+      await mongoClient.connect()
+      mongoDb = mongoClient.db()
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS enquiries (
-        id SERIAL PRIMARY KEY,
-        full_name TEXT NOT NULL,
-        company_name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        requirement_type TEXT NOT NULL,
-        industry TEXT NOT NULL,
-        roles_required TEXT NOT NULL,
-        employees_needed INTEGER NOT NULL DEFAULT 1,
-        message TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        admin_notes TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `)
+      // Ensure index constraints
+      await mongoDb.collection("admins").createIndex({ email: 1 }, { unique: true })
+      await mongoDb.collection("registered_users").createIndex({ email: 1 }, { unique: true })
+      await mongoDb.collection("registrations").createIndex({ email: 1 }, { unique: true })
+      await mongoDb.collection("enquiries").createIndex({ status: 1 })
+      await mongoDb.collection("enquiries").createIndex({ created_at: -1 })
+      await mongoDb.collection("registered_users").createIndex({ created_at: -1 })
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS registered_users (
-        id SERIAL PRIMARY KEY,
-        full_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        phone TEXT NOT NULL,
-        interested_role TEXT NOT NULL,
-        company_name TEXT,
-        password_hash TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `)
+      await seedAdmin()
+      initialized = true
+      return
+    }
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS consultation_requests (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        company TEXT,
-        message TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `)
+    if (pool) {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS admins (
+          id SERIAL PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'admin',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `)
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS registrations (
-        id SERIAL PRIMARY KEY,
-        full_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        phone TEXT NOT NULL,
-        role_industry TEXT,
-        company_name TEXT,
-        password TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS enquiries (
+          id SERIAL PRIMARY KEY,
+          full_name TEXT NOT NULL,
+          company_name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          requirement_type TEXT NOT NULL,
+          industry TEXT NOT NULL,
+          roles_required TEXT NOT NULL,
+          employees_needed INTEGER NOT NULL DEFAULT 1,
+          message TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          admin_notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `)
 
-    await db.query(`
-      CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
-    `)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS registered_users (
+          id SERIAL PRIMARY KEY,
+          full_name TEXT NOT NULL,
+          email TEXT NOT NULL UNIQUE,
+          phone TEXT NOT NULL,
+          interested_role TEXT NOT NULL,
+          company_name TEXT,
+          password_hash TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `)
 
-    await db.query(`
-      CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
-    `)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS consultation_requests (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          company TEXT,
+          message TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `)
 
-    await db.query(`
-      CREATE INDEX IF NOT EXISTS registered_users_created_at_idx ON registered_users (created_at DESC);
-    `)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS registrations (
+          id SERIAL PRIMARY KEY,
+          full_name TEXT NOT NULL,
+          email TEXT NOT NULL UNIQUE,
+          phone TEXT NOT NULL,
+          role_industry TEXT,
+          company_name TEXT,
+          password TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `)
 
-    await seedAdmin()
-    initialized = true
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
+      `)
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
+      `)
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS registered_users_created_at_idx ON registered_users (created_at DESC);
+      `)
+
+      await seedAdmin()
+      initialized = true
+    }
   } catch (error: any) {
     console.error("Database initialization error:", error)
     if (!useLocalFallback) {
