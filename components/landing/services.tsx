@@ -55,7 +55,7 @@ export function Services() {
   const isInView = useInView(ref, { once: true, margin: "-100px" })
 
   return (
-    <section id="services" className="relative py-24 lg:py-32 overflow-hidden">
+    <section id="services" className="relative py-16 md:py-24 lg:py-32 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 grid-bg opacity-30" />
       <div className="absolute top-1/3 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
@@ -72,7 +72,7 @@ export function Services() {
           <span className="text-primary font-medium text-sm uppercase tracking-wider">
             Our Services
           </span>
-          <h2 className="text-3xl lg:text-4xl font-bold mt-4 mb-6 text-balance">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-4 mb-6 text-balance">
             Comprehensive{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Staffing Solutions
@@ -83,8 +83,8 @@ export function Services() {
           </p>
         </motion.div>
 
-        {/* Services Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Services Grid & Mobile Slider */}
+        <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory scrollbar-none pb-4 -mx-4 px-4 md:mx-0 md:px-0">
           {services.map((service, index) => (
             <motion.div
               key={service.title}
@@ -97,7 +97,7 @@ export function Services() {
                 rotateX: 5,
                 transition: { duration: 0.3 }
               }}
-              className="group perspective-1000"
+              className="group perspective-1000 min-w-[280px] xs:min-w-[320px] max-w-[320px] md:max-w-none md:min-w-0 snap-center"
               style={{ transformStyle: "preserve-3d" }}
             >
               <div className="glass-card rounded-2xl p-8 h-full relative overflow-hidden transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-primary/20 group-hover:border-primary/40">
@@ -124,6 +124,16 @@ export function Services() {
                 <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${service.gradient} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left`} />
               </div>
             </motion.div>
+          ))}
+        </div>
+
+        {/* Mobile Swipe Indicators */}
+        <div className="flex md:hidden justify-center items-center gap-1.5 mt-4">
+          {services.map((_, idx) => (
+            <div
+              key={idx}
+              className="w-1.5 h-1.5 rounded-full bg-primary/30"
+            />
           ))}
         </div>
       </div>

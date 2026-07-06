@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import { Briefcase, Building2, CheckCircle, Mail, MessageSquare, Phone, User, Users } from "lucide-react"
@@ -120,14 +120,14 @@ export function EnquiryForm({ buttonLabel = "Submit Enquiry" }: { buttonLabel?: 
           <label className="text-sm font-medium text-foreground">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10 bg-secondary/40 border-border/50" name="email" type="email" value={formData.email} onChange={handleChange} required />
+            <Input className="pl-10 bg-secondary/40 border-border/50" name="email" type="email" inputMode="email" autoComplete="email" value={formData.email} onChange={handleChange} required />
           </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Phone Number</label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10 bg-secondary/40 border-border/50" name="phone" value={formData.phone} onChange={handleChange} required />
+            <Input className="pl-10 bg-secondary/40 border-border/50" name="phone" type="tel" inputMode="tel" autoComplete="tel" value={formData.phone} onChange={handleChange} required />
           </div>
         </div>
       </div>
@@ -163,7 +163,7 @@ export function EnquiryForm({ buttonLabel = "Submit Enquiry" }: { buttonLabel?: 
           <label className="text-sm font-medium text-foreground">Employees Needed</label>
           <div className="relative">
             <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10 bg-secondary/40 border-border/50" name="employeesNeeded" type="number" min="1" value={formData.employeesNeeded} onChange={handleChange} required />
+            <Input className="pl-10 bg-secondary/40 border-border/50" name="employeesNeeded" type="number" inputMode="numeric" min="1" value={formData.employeesNeeded} onChange={handleChange} required />
           </div>
         </div>
       </div>

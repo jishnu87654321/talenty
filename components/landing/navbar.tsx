@@ -29,7 +29,7 @@ export function Navbar() {
       initial={{ y: -90 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.45 }}
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "border-b border-border/40 bg-background/80 backdrop-blur-xl" : "bg-transparent"}`}
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? "border-b border-border/40 bg-background/95 backdrop-blur-xl shadow-lg shadow-background/5" : "bg-transparent"}`}
     >
       <nav className="container mx-auto flex h-20 items-center justify-between px-4 lg:px-8">
         <Link href="/" className="flex items-center gap-3 group">

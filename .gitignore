@@ -17,3 +17,7 @@ node_modules/
 .next-dev.log
 .next-dev.err
 .DS_Store
+
+# Local database fallback
+database.json
+

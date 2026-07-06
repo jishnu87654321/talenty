@@ -32,7 +32,7 @@ export function About() {
   const isInView = useInView(ref, { once: true, margin: "-100px" })
 
   return (
-    <section id="about" className="relative py-24 lg:py-32 overflow-hidden">
+    <section id="about" className="relative py-16 md:py-24 lg:py-32 overflow-hidden">
       {/* Background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-0 left-1/4 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
@@ -60,7 +60,7 @@ export function About() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.2 }}
-              className="text-3xl lg:text-4xl font-bold mt-4 mb-6 text-balance"
+              className="text-2xl sm:text-3xl lg:text-4xl font-bold mt-4 mb-6 text-balance"
             >
               About{" "}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">

@@ -180,7 +180,7 @@ export default function RecruitmentConsultingBangalore() {
                 <iframe 
                   title="Talenty Bengaluru Church Street Office Map" 
                   src="https://www.google.com/maps?q=Bhive%20Platinum%20Church%20Street%20Bengaluru&z=15&output=embed" 
-                  className="h-full w-full border-0" 
+                  className="h-full w-full border-0 pointer-events-none md:pointer-events-auto" 
                   loading="lazy" 
                   referrerPolicy="no-referrer-when-downgrade" 
                 />

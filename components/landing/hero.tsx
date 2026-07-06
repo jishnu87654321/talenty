@@ -57,7 +57,7 @@ export function Hero() {
               <Zap className="h-4 w-4 text-primary" />
               <span className="text-sm text-muted-foreground">Counseling, Consulting, and Hiring Support</span>
             </motion.div>
-            <h1 className="mb-6 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl text-balance">
+            <h1 className="mb-6 text-3xl sm:text-4xl font-bold leading-tight md:text-5xl lg:text-6xl text-balance">
               Recruitment Consulting & Staffing in <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Bengaluru</span>
             </h1>
             <p className="mb-8 max-w-2xl text-lg leading-relaxed text-muted-foreground lg:mx-0 text-pretty">
@@ -75,6 +75,29 @@ export function Hero() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
+            </div>
+
+            {/* Mobile Stats Card (only visible on mobile below md) */}
+            <div className="mt-10 block md:hidden">
+              <div className="glass-card rounded-3xl p-6 text-left border border-border/40 shadow-xl max-w-md mx-auto">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent">
+                    <Building2 className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-foreground text-sm">Talenty Consulting</div>
+                    <div className="text-xs text-muted-foreground">Requirement capture & staffing support</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[{ label: 'Active Plans', value: '18' }, { label: 'Coverage', value: 'All' }, { label: 'Batches', value: '12' }].map((item) => (
+                    <div key={item.label} className="flex flex-col justify-between rounded-xl bg-secondary/30 p-2.5 text-center">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{item.label}</span>
+                      <span className="font-bold text-foreground text-sm mt-1">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
 

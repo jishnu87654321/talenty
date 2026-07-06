@@ -1,4 +1,6 @@
-﻿import { Pool } from "pg"
+import { Pool } from "pg"
+import fs from "fs"
+import path from "path"
 
 import { hashPassword } from "@/backend/auth"
 
@@ -12,7 +14,7 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set. Add it to your environment before starting the app.")
 }
 
-export const db =
+const pool =
   global.__talentyPool ??
   new Pool({
     connectionString,
@@ -23,7 +25,302 @@ export const db =
   })
 
 if (process.env.NODE_ENV !== "production") {
-  global.__talentyPool = db
+  global.__talentyPool = pool
+}
+
+let useLocalFallback = false
+const JSON_DB_PATH = path.join(process.cwd(), "database.json")
+
+function readLocalDb() {
+  if (!fs.existsSync(JSON_DB_PATH)) {
+    const initialData = {
+      admins: [],
+      enquiries: [],
+      registered_users: [],
+      consultation_requests: [],
+      registrations: []
+    }
+    fs.writeFileSync(JSON_DB_PATH, JSON.stringify(initialData, null, 2), "utf8")
+    return initialData
+  }
+  try {
+    return JSON.parse(fs.readFileSync(JSON_DB_PATH, "utf8"))
+  } catch (err) {
+    console.error("Error reading database.json, returning empty structure", err)
+    return {
+      admins: [],
+      enquiries: [],
+      registered_users: [],
+      consultation_requests: [],
+      registrations: []
+    }
+  }
+}
+
+function writeLocalDb(data: any) {
+  try {
+    fs.writeFileSync(JSON_DB_PATH, JSON.stringify(data, null, 2), "utf8")
+  } catch (err) {
+    console.error("Error writing to database.json", err)
+  }
+}
+
+async function localQuery(sql: string, params: any[] = []): Promise<{ rows: any[] }> {
+  const normalizedSql = sql.trim().replace(/\s+/g, " ")
+  const data = readLocalDb()
+
+  if (normalizedSql.startsWith("CREATE TABLE") || normalizedSql.startsWith("CREATE INDEX")) {
+    return { rows: [] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO admins")) {
+    const email = params[0]
+    const passwordHash = params[1]
+    const role = params[2] || "super_admin"
+
+    const existingIdx = data.admins.findIndex((a: any) => a.email.toLowerCase() === email.toLowerCase())
+    if (existingIdx > -1) {
+      data.admins[existingIdx].password_hash = passwordHash
+      data.admins[existingIdx].role = role
+    } else {
+      const nextId = data.admins.reduce((max: number, a: any) => Math.max(max, a.id || 0), 0) + 1
+      data.admins.push({
+        id: nextId,
+        email,
+        password_hash: passwordHash,
+        role,
+        created_at: new Date().toISOString()
+      })
+    }
+    writeLocalDb(data)
+    return { rows: [] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO enquiries")) {
+    const nextId = data.enquiries.reduce((max: number, e: any) => Math.max(max, e.id || 0), 0) + 1
+    const newEnquiry = {
+      id: nextId,
+      full_name: params[0],
+      company_name: params[1],
+      email: params[2],
+      phone: params[3],
+      requirement_type: params[4],
+      industry: params[5],
+      roles_required: params[6],
+      employees_needed: Number(params[7] || 1),
+      message: params[8],
+      status: "pending",
+      admin_notes: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    data.enquiries.push(newEnquiry)
+    writeLocalDb(data)
+    return { rows: [{ id: nextId }] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO registered_users")) {
+    const email = params[1]
+    const exists = data.registered_users.some((u: any) => u.email.toLowerCase() === email.toLowerCase())
+    if (exists) {
+      const error: any = new Error("Unique constraint violation")
+      error.code = "23505"
+      throw error
+    }
+    const nextId = data.registered_users.reduce((max: number, u: any) => Math.max(max, u.id || 0), 0) + 1
+    const newUser = {
+      id: nextId,
+      full_name: params[0],
+      email: params[1],
+      phone: params[2],
+      interested_role: params[3],
+      company_name: params[4],
+      password_hash: params[5],
+      created_at: new Date().toISOString()
+    }
+    data.registered_users.push(newUser)
+    writeLocalDb(data)
+    return { rows: [{ id: nextId }] }
+  }
+
+  if (normalizedSql.includes("INSERT INTO consultation_requests")) {
+    const nextId = data.consultation_requests.reduce((max: number, c: any) => Math.max(max, c.id || 0), 0) + 1
+    const newRequest = {
+      id: nextId,
+      name: params[0],
+      email: params[1],
+      phone: params[2],
+      company: params[3],
+      message: params[4],
+      created_at: new Date().toISOString()
+    }
+    data.consultation_requests.push(newRequest)
+    writeLocalDb(data)
+    return { rows: [{ id: nextId }] }
+  }
+
+  if (normalizedSql.includes("FROM admins WHERE email =")) {
+    const email = params[0]
+    const admin = data.admins.find((a: any) => a.email.toLowerCase() === email.toLowerCase())
+    return { rows: admin ? [admin] : [] }
+  }
+
+  if (normalizedSql.includes("FROM enquiries") && !normalizedSql.includes("WHERE id =")) {
+    let list = [...data.enquiries]
+    let paramIndex = 0
+    if (normalizedSql.includes("full_name ILIKE")) {
+      const searchVal = params[paramIndex++].replace(/%/g, "").toLowerCase()
+      list = list.filter(e => 
+        (e.full_name || "").toLowerCase().includes(searchVal) || 
+        (e.company_name || "").toLowerCase().includes(searchVal)
+      )
+    }
+    if (normalizedSql.includes("status =")) {
+      const statusVal = params[paramIndex++]
+      list = list.filter(e => e.status === statusVal)
+    }
+    if (normalizedSql.includes("industry =")) {
+      const industryVal = params[paramIndex++]
+      list = list.filter(e => e.industry === industryVal)
+    }
+
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const rows = list.map(e => ({
+      id: e.id,
+      fullName: e.full_name,
+      companyName: e.company_name,
+      email: e.email,
+      phone: e.phone,
+      requirementType: e.requirement_type,
+      industry: e.industry,
+      rolesRequired: e.roles_required,
+      employeesNeeded: e.employees_needed,
+      message: e.message,
+      status: e.status,
+      adminNotes: e.admin_notes,
+      admin_notes: e.admin_notes,
+      createdAt: e.created_at,
+      updatedAt: e.updated_at
+    }))
+    return { rows }
+  }
+
+  if (normalizedSql.includes("FROM enquiries WHERE id =")) {
+    const id = Number(params[0])
+    const e = data.enquiries.find((x: any) => x.id === id)
+    if (!e) return { rows: [] }
+    return {
+      rows: [{
+        id: e.id,
+        fullName: e.full_name,
+        companyName: e.company_name,
+        email: e.email,
+        phone: e.phone,
+        requirementType: e.requirement_type,
+        industry: e.industry,
+        rolesRequired: e.roles_required,
+        employeesNeeded: e.employees_needed,
+        message: e.message,
+        status: e.status,
+        adminNotes: e.admin_notes,
+        admin_notes: e.admin_notes,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at
+      }]
+    }
+  }
+
+  if (normalizedSql.includes("UPDATE enquiries")) {
+    const id = Number(params[0])
+    const status = params[1]
+    const adminNotes = params[2]
+
+    const idx = data.enquiries.findIndex((x: any) => x.id === id)
+    if (idx === -1) return { rows: [] }
+
+    data.enquiries[idx].status = status
+    data.enquiries[idx].admin_notes = adminNotes
+    data.enquiries[idx].updated_at = new Date().toISOString()
+
+    const e = data.enquiries[idx]
+    writeLocalDb(data)
+
+    return {
+      rows: [{
+        id: e.id,
+        fullName: e.full_name,
+        companyName: e.company_name,
+        email: e.email,
+        phone: e.phone,
+        requirementType: e.requirement_type,
+        industry: e.industry,
+        rolesRequired: e.roles_required,
+        employeesNeeded: e.employees_needed,
+        message: e.message,
+        status: e.status,
+        adminNotes: e.admin_notes,
+        admin_notes: e.admin_notes,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at
+      }]
+    }
+  }
+
+  if (normalizedSql.includes("DELETE FROM enquiries WHERE id =")) {
+    const id = Number(params[0])
+    const idx = data.enquiries.findIndex((x: any) => x.id === id)
+    if (idx === -1) return { rows: [] }
+    data.enquiries.splice(idx, 1)
+    writeLocalDb(data)
+    return { rows: [{ id }] }
+  }
+
+  if (normalizedSql.includes("FROM registered_users")) {
+    const list = [...data.registered_users]
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const rows = list.map(u => ({
+      id: u.id,
+      fullName: u.full_name,
+      email: u.email,
+      phone: u.phone,
+      interestedRole: u.interested_role,
+      companyName: u.company_name,
+      createdAt: u.created_at
+    }))
+    return { rows }
+  }
+
+  if (normalizedSql.includes("SELECT NOW()")) {
+    return { rows: [{ now: new Date().toISOString() }] }
+  }
+
+  return { rows: [] }
+}
+
+export const db = {
+  async query(sql: string, params: any[] = []): Promise<{ rows: any[] }> {
+    if (useLocalFallback) {
+      return localQuery(sql, params)
+    }
+    try {
+      return await pool.query(sql, params)
+    } catch (error: any) {
+      const isConnectionError = 
+        error.code === "ECONNRESET" || 
+        error.code === "ECONNREFUSED" || 
+        error.message?.includes("connect") || 
+        error.message?.includes("timeout") ||
+        error.message?.includes("paused")
+      
+      if (isConnectionError) {
+        console.warn("Database connection failed. Falling back to local JSON database. Error:", error.message)
+        useLocalFallback = true
+        return localQuery(sql, params)
+      }
+      throw error
+    }
+  }
 }
 
 let initialized = false
@@ -48,86 +345,104 @@ export async function initializeDatabase() {
     return
   }
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS admins (
-      id SERIAL PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'admin',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
+  try {
+    // If fallback is already on, skip real DB checks
+    if (useLocalFallback) {
+      await seedAdmin()
+      initialized = true
+      return
+    }
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS enquiries (
-      id SERIAL PRIMARY KEY,
-      full_name TEXT NOT NULL,
-      company_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      requirement_type TEXT NOT NULL,
-      industry TEXT NOT NULL,
-      roles_required TEXT NOT NULL,
-      employees_needed INTEGER NOT NULL DEFAULT 1,
-      message TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      admin_notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'admin',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS registered_users (
-      id SERIAL PRIMARY KEY,
-      full_name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      phone TEXT NOT NULL,
-      interested_role TEXT NOT NULL,
-      company_name TEXT,
-      password_hash TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS enquiries (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        requirement_type TEXT NOT NULL,
+        industry TEXT NOT NULL,
+        roles_required TEXT NOT NULL,
+        employees_needed INTEGER NOT NULL DEFAULT 1,
+        message TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        admin_notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS consultation_requests (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      company TEXT,
-      message TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS registered_users (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        phone TEXT NOT NULL,
+        interested_role TEXT NOT NULL,
+        company_name TEXT,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS registrations (
-      id SERIAL PRIMARY KEY,
-      full_name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      phone TEXT NOT NULL,
-      role_industry TEXT,
-      company_name TEXT,
-      password TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS consultation_requests (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        company TEXT,
+        message TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
 
-  await db.query(`
-    CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
-  `)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS registrations (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        phone TEXT NOT NULL,
+        role_industry TEXT,
+        company_name TEXT,
+        password TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
 
-  await db.query(`
-    CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
-  `)
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS enquiries_status_idx ON enquiries (status);
+    `)
 
-  await db.query(`
-    CREATE INDEX IF NOT EXISTS registered_users_created_at_idx ON registered_users (created_at DESC);
-  `)
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS enquiries_created_at_idx ON enquiries (created_at DESC);
+    `)
 
-  await seedAdmin()
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS registered_users_created_at_idx ON registered_users (created_at DESC);
+    `)
 
-  initialized = true
+    await seedAdmin()
+    initialized = true
+  } catch (error: any) {
+    console.error("Database initialization error:", error)
+    if (!useLocalFallback) {
+      console.warn("Retrying initialization with local JSON database fallback...")
+      useLocalFallback = true
+      initialized = false
+      await initializeDatabase()
+    } else {
+      throw error
+    }
+  }
 }
